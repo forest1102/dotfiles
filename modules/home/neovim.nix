@@ -35,8 +35,8 @@
       conform-nvim
       gitsigns-nvim
       lualine-nvim
+      markview-nvim
       nvim-web-devicons
-      render-markdown-nvim
       snacks-nvim
       todo-comments-nvim
       trouble-nvim
