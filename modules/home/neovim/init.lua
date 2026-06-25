@@ -110,6 +110,7 @@ which_key.add({
   { "<leader>la", desc = "Code action" },
   { "<leader>lf", desc = "Format" },
   { "<leader>lr", desc = "Rename" },
+  { "<leader>m", group = "Markdown" },
   { "<leader>t", group = "Terminal" },
   { "<leader>tt", desc = "Toggle terminal" },
   { "<leader>x", group = "Diagnostics" },
@@ -217,7 +218,39 @@ require("trouble").setup({})
 keymap("n", "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", vim.tbl_extend("force", opts, { desc = "Diagnostics" }))
 keymap("n", "<leader>xX", "<cmd>Trouble diagnostics toggle filter.buf=0<cr>", vim.tbl_extend("force", opts, { desc = "Buffer diagnostics" }))
 
-require("render-markdown").setup({})
+require("markview").setup({
+  preview = {
+    enable = false,
+    enable_hybrid_mode = false,
+    filetypes = { "markdown" },
+    condition = function(buffer)
+      return vim.bo[buffer].filetype == "markdown"
+    end,
+    icon_provider = "devicons",
+    map_gx = false,
+  },
+})
+
+local function toggle_markview_preview()
+  if vim.bo.filetype ~= "markdown" then
+    return
+  end
+
+  local actions = require("markview.actions")
+  local state = require("markview.state")
+  local buffer = vim.api.nvim_get_current_buf()
+
+  if not state.buf_attached(buffer) then
+    actions.attach(buffer)
+    actions.enable(buffer)
+    return
+  end
+
+  actions.toggle(buffer)
+end
+
+keymap("n", "<leader>mr", toggle_markview_preview, vim.tbl_extend("force", opts, { desc = "Markdown preview" }))
+keymap("n", "<leader>ms", "<cmd>Markview splitToggle<cr>", vim.tbl_extend("force", opts, { desc = "Markdown split preview" }))
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = {
