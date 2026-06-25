@@ -15,6 +15,11 @@ in
 
   environment.systemPackages = with pkgs; [
     git
+    home-manager
+  ];
+
+  fonts.packages = with pkgs; [
+    nerd-fonts.fira-code
   ];
 
   system.stateVersion = 6;
