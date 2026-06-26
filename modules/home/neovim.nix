@@ -21,6 +21,7 @@
     stylua
     tailwindcss-language-server
     typescript-language-server
+    volta
     vscode-langservers-extracted
   ];
 

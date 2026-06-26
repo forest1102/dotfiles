@@ -87,7 +87,13 @@ Snacks.setup({
     prompt = "> ",
     sources = {
       explorer = {
+        hidden = true,
+        ignored = true,
         layout = { preset = "sidebar", preview = false, layout = { position = "left", width = 32 } },
+      },
+      files = {
+        hidden = true,
+        ignored = true,
       },
     },
   },
@@ -113,9 +119,12 @@ which_key.add({
   { "<leader>m", group = "Markdown" },
   { "<leader>t", group = "Terminal" },
   { "<leader>tt", desc = "Toggle terminal" },
+  { "<leader>W", group = "Worktree" },
+  { "<leader>Ww", desc = "Select worktree" },
   { "<leader>x", group = "Diagnostics" },
   { "<leader>xx", desc = "Diagnostics" },
   { "<leader>xX", desc = "Buffer diagnostics" },
+  { "<leader>c", desc = "Focus Claude" },
   { "<leader>C", group = "Claude" },
   { "<leader>CA", desc = "Continue Claude" },
   { "<leader>Ca", desc = "Accept Claude diff" },
@@ -162,7 +171,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
   end,
 })
 keymap("n", "<leader>ff", function()
-  Snacks.picker.files()
+  Snacks.picker.files({ hidden = true, ignored = true })
 end, vim.tbl_extend("force", opts, { desc = "Find files" }))
 keymap("n", "<leader>fg", function()
   Snacks.picker.grep()
@@ -206,6 +215,74 @@ keymap("n", "<leader>gg", function()
     },
   })
 end, vim.tbl_extend("force", opts, { desc = "LazyGit" }))
+
+local function parse_worktree_list(lines)
+  local worktrees = {}
+  local current = nil
+
+  local function push_current()
+    if current and current.path then
+      current.label = current.branch or current.head or vim.fn.fnamemodify(current.path, ":t")
+      table.insert(worktrees, current)
+    end
+  end
+
+  for _, line in ipairs(lines) do
+    if line:sub(1, 9) == "worktree " then
+      push_current()
+      current = { path = line:sub(10) }
+    elseif current and line:sub(1, 5) == "HEAD " then
+      current.head = line:sub(6, 17)
+    elseif current and line:sub(1, 18) == "branch refs/heads/" then
+      current.branch = line:sub(19)
+    elseif current and line == "detached" then
+      current.branch = "detached"
+    end
+  end
+
+  push_current()
+  return worktrees
+end
+
+local function select_worktree()
+  local lines = vim.fn.systemlist({ "git", "worktree", "list", "--porcelain" })
+  if vim.v.shell_error ~= 0 then
+    vim.notify(table.concat(lines, "\n"), vim.log.levels.ERROR, { title = "Worktree" })
+    return
+  end
+
+  local worktrees = parse_worktree_list(lines)
+  if #worktrees == 0 then
+    vim.notify("No worktrees found", vim.log.levels.WARN, { title = "Worktree" })
+    return
+  end
+
+  vim.ui.select(worktrees, {
+    prompt = "Worktree",
+    format_item = function(item)
+      return string.format("%s  %s", item.label, item.path)
+    end,
+  }, function(item)
+    if not item then
+      return
+    end
+
+    if vim.fn.isdirectory(item.path) ~= 1 then
+      vim.notify("Directory not found: " .. item.path, vim.log.levels.ERROR, { title = "Worktree" })
+      return
+    end
+
+    local escaped_path = vim.fn.fnameescape(item.path)
+    vim.api.nvim_set_current_dir(item.path)
+    vim.cmd("tabnew")
+    vim.cmd("tcd " .. escaped_path)
+    Snacks.explorer({ cwd = item.path })
+    vim.notify("Moved to " .. item.label, vim.log.levels.INFO, { title = "Worktree" })
+  end)
+end
+
+vim.api.nvim_create_user_command("WorktreeSelect", select_worktree, { desc = "Select and move to worktree" })
+keymap("n", "<leader>Ww", select_worktree, vim.tbl_extend("force", opts, { desc = "Select worktree" }))
 
 require("lualine").setup({
   options = {
@@ -416,6 +493,7 @@ require("claudecode").setup({
 })
 
 keymap({ "n", "i", "t" }, "<C-g>", "<cmd>ClaudeCode<cr>", vim.tbl_extend("force", opts, { desc = "Toggle Claude Code" }))
+keymap("n", "<leader>c", "<cmd>ClaudeCodeFocus<cr>", vim.tbl_extend("force", opts, { desc = "Focus Claude" }))
 keymap("n", "<leader>Cf", "<cmd>ClaudeCodeFocus<cr>", vim.tbl_extend("force", opts, { desc = "Focus Claude" }))
 keymap("n", "<leader>Cr", "<cmd>ClaudeCode --resume<cr>", vim.tbl_extend("force", opts, { desc = "Resume Claude" }))
 keymap("n", "<leader>CA", "<cmd>ClaudeCode --continue<cr>", vim.tbl_extend("force", opts, { desc = "Continue Claude" }))
