@@ -5,6 +5,7 @@
     bash-language-server
     bat
     claude-code
+    codex
     eslint_d
     fd
     fzf
