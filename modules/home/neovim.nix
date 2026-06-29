@@ -16,6 +16,8 @@
     nixd
     nixfmt
     prettierd
+    prisma
+    prisma-engines
     ripgrep
     shellcheck
     shfmt

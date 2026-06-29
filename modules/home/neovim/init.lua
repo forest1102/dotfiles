@@ -183,7 +183,7 @@ keymap("n", "<leader>tt", function()
   Snacks.terminal.toggle()
 end, vim.tbl_extend("force", opts, { desc = "Toggle terminal" }))
 
-keymap("t", "<Esc><Esc>", [[<C-\><C-n>]], vim.tbl_extend("force", opts, { desc = "Terminal normal mode" }))
+keymap("t", "<C-]>", [[<C-\><C-n>]], vim.tbl_extend("force", opts, { desc = "Terminal normal mode" }))
 keymap("t", "<C-h>", [[<Cmd>wincmd h<CR>]], vim.tbl_extend("force", opts, { desc = "Move left" }))
 keymap("t", "<C-j>", [[<Cmd>wincmd j<CR>]], vim.tbl_extend("force", opts, { desc = "Move down" }))
 keymap("t", "<C-k>", [[<Cmd>wincmd k<CR>]], vim.tbl_extend("force", opts, { desc = "Move up" }))
