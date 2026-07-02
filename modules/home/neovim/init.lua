@@ -65,7 +65,7 @@ local function toggle_focus_explorer()
   end
 end
 
-keymap("n", "<leader>w", "<cmd>write<cr>", vim.tbl_extend("force", opts, { desc = "Write buffer" }))
+keymap("n", "<leader>s", "<cmd>write<cr>", vim.tbl_extend("force", opts, { desc = "Write buffer" }))
 keymap("n", "<leader>q", "<cmd>quit<cr>", vim.tbl_extend("force", opts, { desc = "Quit window" }))
 keymap("n", "<leader>Q", "<cmd>qa<cr>", vim.tbl_extend("force", opts, { desc = "Quit Neovim" }))
 keymap({ "n", "t" }, "<C-q>", close_current_view, vim.tbl_extend("force", opts, { desc = "Close current view" }))
@@ -110,6 +110,8 @@ which_key.add({
   { "<leader>fg", desc = "Grep" },
   { "<leader>g", group = "Git" },
   { "<leader>gd", desc = "Git diff" },
+  { "<leader>ge", desc = "Changed files explorer" },
+  { "<leader>gi", desc = "GitHub issues" },
   { "<leader>gg", desc = "LazyGit" },
   { "<leader>gs", desc = "Git status" },
   { "<leader>l", group = "LSP" },
@@ -119,8 +121,10 @@ which_key.add({
   { "<leader>m", group = "Markdown" },
   { "<leader>t", group = "Terminal" },
   { "<leader>tt", desc = "Toggle terminal" },
-  { "<leader>W", group = "Worktree" },
-  { "<leader>Ww", desc = "Select worktree" },
+  { "<leader>w", group = "Worktree" },
+  { "<leader>wc", desc = "Create worktree" },
+  { "<leader>wd", desc = "Delete current worktree" },
+  { "<leader>ww", desc = "Select worktree" },
   { "<leader>x", group = "Diagnostics" },
   { "<leader>xx", desc = "Diagnostics" },
   { "<leader>xX", desc = "Buffer diagnostics" },
@@ -192,12 +196,29 @@ keymap("t", "<C-l>", [[<Cmd>wincmd l<CR>]], vim.tbl_extend("force", opts, { desc
 require("gitsigns").setup({
   numhl = true,
 })
+local function open_changed_files_explorer()
+  Snacks.picker.git_status({
+    title = "Changed files",
+    show_empty = true,
+    layout = {
+      preset = "sidebar",
+      preview = false,
+      layout = {
+        position = "left",
+        width = 42,
+      },
+    },
+  })
+end
+
 keymap("n", "<leader>gs", function()
   Snacks.picker.git_status({ show_empty = true })
 end, vim.tbl_extend("force", opts, { desc = "Git status" }))
 keymap("n", "<leader>gd", function()
   Snacks.picker.git_diff({ show_empty = true })
 end, vim.tbl_extend("force", opts, { desc = "Git diff" }))
+vim.api.nvim_create_user_command("GitChangedFiles", open_changed_files_explorer, { desc = "Show changed files" })
+keymap("n", "<leader>ge", open_changed_files_explorer, vim.tbl_extend("force", opts, { desc = "Changed files explorer" }))
 keymap("n", "<leader>gg", function()
   vim.fn.mkdir(vim.fn.stdpath("cache"), "p")
   vim.cmd("silent! wall")
@@ -244,6 +265,48 @@ local function parse_worktree_list(lines)
   return worktrees
 end
 
+local function get_git_root()
+  local lines = vim.fn.systemlist({ "git", "rev-parse", "--show-toplevel" })
+  if vim.v.shell_error ~= 0 or not lines[1] or lines[1] == "" then
+    vim.notify(table.concat(lines, "\n"), vim.log.levels.ERROR, { title = "Git" })
+    return nil
+  end
+
+  return lines[1]
+end
+
+local function get_main_worktree_root()
+  local lines = vim.fn.systemlist({ "git", "rev-parse", "--path-format=absolute", "--git-common-dir" })
+  if vim.v.shell_error ~= 0 or not lines[1] or lines[1] == "" then
+    vim.notify(table.concat(lines, "\n"), vim.log.levels.ERROR, { title = "Git" })
+    return nil
+  end
+
+  return vim.fn.fnamemodify(lines[1], ":h")
+end
+
+local function sanitize_worktree_name(value)
+  local sanitized = value:gsub("[/%s]+", "-"):gsub("[^%w%._%-]", "-"):gsub("%-+", "-")
+  if sanitized == "" then
+    return "worktree"
+  end
+
+  return sanitized
+end
+
+local function open_worktree(path, label)
+  if vim.fn.isdirectory(path) ~= 1 then
+    vim.notify("Directory not found: " .. path, vim.log.levels.ERROR, { title = "Worktree" })
+    return
+  end
+
+  local escaped_path = vim.fn.fnameescape(path)
+  vim.cmd("tabnew")
+  vim.cmd("tcd " .. escaped_path)
+  Snacks.explorer({ cwd = path })
+  vim.notify("Moved to " .. label, vim.log.levels.INFO, { title = "Worktree" })
+end
+
 local function select_worktree()
   local lines = vim.fn.systemlist({ "git", "worktree", "list", "--porcelain" })
   if vim.v.shell_error ~= 0 then
@@ -267,22 +330,156 @@ local function select_worktree()
       return
     end
 
-    if vim.fn.isdirectory(item.path) ~= 1 then
-      vim.notify("Directory not found: " .. item.path, vim.log.levels.ERROR, { title = "Worktree" })
-      return
-    end
-
-    local escaped_path = vim.fn.fnameescape(item.path)
-    vim.api.nvim_set_current_dir(item.path)
-    vim.cmd("tabnew")
-    vim.cmd("tcd " .. escaped_path)
-    Snacks.explorer({ cwd = item.path })
-    vim.notify("Moved to " .. item.label, vim.log.levels.INFO, { title = "Worktree" })
+    open_worktree(item.path, item.label)
   end)
 end
 
+local function create_worktree(branch)
+  local function run(input)
+    input = input and vim.trim(input) or ""
+    if input == "" then
+      return
+    end
+
+    local root = get_git_root()
+    if not root then
+      return
+    end
+
+    local worktree_dir = root .. "/.worktree"
+    local worktree_path = worktree_dir .. "/" .. sanitize_worktree_name(input)
+
+    if vim.fn.isdirectory(worktree_path) == 1 then
+      open_worktree(worktree_path, input)
+      return
+    end
+
+    vim.fn.mkdir(worktree_dir, "p")
+    vim.fn.system({ "git", "show-ref", "--verify", "--quiet", "refs/heads/" .. input })
+
+    local command
+    if vim.v.shell_error == 0 then
+      command = { "git", "worktree", "add", worktree_path, input }
+    else
+      command = { "git", "worktree", "add", "-b", input, worktree_path, "HEAD" }
+    end
+
+    local output = vim.fn.systemlist(command)
+    if vim.v.shell_error ~= 0 then
+      vim.notify(table.concat(output, "\n"), vim.log.levels.ERROR, { title = "Worktree" })
+      return
+    end
+
+    open_worktree(worktree_path, input)
+  end
+
+  if branch and branch ~= "" then
+    run(branch)
+    return
+  end
+
+  vim.ui.input({ prompt = "Worktree branch: " }, run)
+end
+
+local function delete_current_worktree()
+  local root = get_git_root()
+  if not root then
+    return
+  end
+
+  if not root:find("/%.worktree/") then
+    vim.notify("Refusing to remove main worktree: " .. root, vim.log.levels.WARN, { title = "Worktree" })
+    return
+  end
+
+  local main_root = get_main_worktree_root()
+  if not main_root or main_root == root then
+    vim.notify("Could not determine main worktree", vim.log.levels.ERROR, { title = "Worktree" })
+    return
+  end
+
+  local label = vim.fn.fnamemodify(root, ":t")
+  vim.ui.select({ "Remove", "Cancel" }, {
+    prompt = "Remove current worktree " .. label .. "?",
+  }, function(choice)
+    if choice ~= "Remove" then
+      return
+    end
+
+    vim.cmd("tcd " .. vim.fn.fnameescape(main_root))
+    Snacks.explorer({ cwd = main_root })
+
+    local output = vim.fn.systemlist({ "git", "worktree", "remove", root })
+    if vim.v.shell_error ~= 0 then
+      vim.notify(table.concat(output, "\n"), vim.log.levels.ERROR, { title = "Worktree" })
+      return
+    end
+
+    vim.notify("Removed worktree " .. root, vim.log.levels.INFO, { title = "Worktree" })
+  end)
+end
+
+local function list_github_issues()
+  if vim.fn.executable("gh") ~= 1 then
+    vim.notify("gh command is not installed", vim.log.levels.ERROR, { title = "GitHub Issues" })
+    return
+  end
+
+  local lines = vim.fn.systemlist({
+    "gh",
+    "issue",
+    "list",
+    "--limit",
+    "50",
+    "--json",
+    "number,title,state,author,updatedAt,url",
+  })
+  if vim.v.shell_error ~= 0 then
+    vim.notify(table.concat(lines, "\n"), vim.log.levels.ERROR, { title = "GitHub Issues" })
+    return
+  end
+
+  local ok, issues = pcall(vim.json.decode, table.concat(lines, "\n"))
+  if not ok or type(issues) ~= "table" then
+    vim.notify("Failed to parse gh issue list output", vim.log.levels.ERROR, { title = "GitHub Issues" })
+    return
+  end
+
+  if #issues == 0 then
+    vim.notify("No GitHub issues found", vim.log.levels.INFO, { title = "GitHub Issues" })
+    return
+  end
+
+  vim.ui.select(issues, {
+    prompt = "GitHub Issues",
+    format_item = function(issue)
+      local author = issue.author and issue.author.login or "unknown"
+      return string.format("#%s [%s] %s (%s)", issue.number, issue.state, issue.title, author)
+    end,
+  }, function(issue)
+    if not issue then
+      return
+    end
+
+    Snacks.terminal({ "gh", "issue", "view", tostring(issue.number), "--comments" }, {
+      win = {
+        position = "right",
+        width = 0.50,
+      },
+    })
+  end)
+end
+
+vim.api.nvim_create_user_command("WorktreeCreate", function(command)
+  create_worktree(command.args)
+end, { nargs = "?", desc = "Create and move to worktree" })
+vim.api.nvim_create_user_command("WorktreeDeleteCurrent", delete_current_worktree, { desc = "Delete current worktree" })
 vim.api.nvim_create_user_command("WorktreeSelect", select_worktree, { desc = "Select and move to worktree" })
-keymap("n", "<leader>Ww", select_worktree, vim.tbl_extend("force", opts, { desc = "Select worktree" }))
+vim.api.nvim_create_user_command("GithubIssueList", list_github_issues, { desc = "List GitHub issues" })
+keymap("n", "<leader>wc", create_worktree, vim.tbl_extend("force", opts, { desc = "Create worktree" }))
+keymap("n", "<leader>wd", delete_current_worktree, vim.tbl_extend("force", opts, { desc = "Delete current worktree" }))
+keymap("n", "<leader>ww", select_worktree, vim.tbl_extend("force", opts, { desc = "Select worktree" }))
+keymap("n", "<leader>gi", list_github_issues, vim.tbl_extend("force", opts, { desc = "GitHub issues" }))
 
 require("lualine").setup({
   options = {
