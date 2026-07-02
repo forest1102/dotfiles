@@ -21,14 +21,17 @@ let
         base="HEAD"
       fi
 
-      root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+      git rev-parse --show-toplevel >/dev/null 2>&1 || {
         echo "nvim-worktree: not inside a git repository" >&2
         exit 1
       }
 
+      git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir)
+      main_root=$(dirname "$git_common_dir")
       safe_name=$(printf '%s' "$branch" | tr '/[:space:]' '-' | tr -c 'A-Za-z0-9._-' '-' | tr -s '-')
-      worktree_dir="$root/.worktree"
+      worktree_dir="$main_root/.worktree"
       worktree_path="$worktree_dir/$safe_name"
+      init_script="$worktree_dir/init.sh"
 
       mkdir -p "$worktree_dir"
 
@@ -40,6 +43,20 @@ let
         git worktree add "$worktree_path" "$branch"
       else
         git worktree add -b "$branch" "$worktree_path" "$base"
+      fi
+
+      if [ -f "$init_script" ]; then
+        (
+          cd "$worktree_path"
+          export WORKTREE_MAIN_ROOT="$main_root"
+          export WORKTREE_PATH="$worktree_path"
+          export WORKTREE_BRANCH="$branch"
+          export WORKTREE_BASE="$base"
+          sh "$init_script"
+        ) || {
+          status=$?
+          echo "nvim-worktree: warning: .worktree/init.sh failed with exit status $status" >&2
+        }
       fi
 
       exec nvim "$worktree_path"

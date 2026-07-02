@@ -335,19 +335,47 @@ local function select_worktree()
 end
 
 local function create_worktree(branch)
+  local function run_worktree_init(main_root, worktree_path, branch_name, base)
+    local init_script = main_root .. "/.worktree/init.sh"
+    if vim.fn.filereadable(init_script) ~= 1 then
+      return
+    end
+
+    local result = vim.system({ "sh", init_script }, {
+      cwd = worktree_path,
+      env = {
+        WORKTREE_MAIN_ROOT = main_root,
+        WORKTREE_PATH = worktree_path,
+        WORKTREE_BRANCH = branch_name,
+        WORKTREE_BASE = base,
+      },
+      text = true,
+    }):wait()
+
+    if result.code ~= 0 then
+      local output = vim.trim(table.concat({ result.stdout or "", result.stderr or "" }, "\n"))
+      local message = ".worktree/init.sh failed with exit status " .. result.code
+      if output ~= "" then
+        message = message .. "\n" .. output
+      end
+      vim.notify(message, vim.log.levels.WARN, { title = "Worktree" })
+    end
+  end
+
   local function run(input)
     input = input and vim.trim(input) or ""
     if input == "" then
       return
     end
 
-    local root = get_git_root()
-    if not root then
+    local main_root = get_main_worktree_root()
+    if not main_root then
       return
     end
 
-    local worktree_dir = root .. "/.worktree"
+    local worktree_dir = main_root .. "/.worktree"
     local worktree_path = worktree_dir .. "/" .. sanitize_worktree_name(input)
+    local base = "HEAD"
 
     if vim.fn.isdirectory(worktree_path) == 1 then
       open_worktree(worktree_path, input)
@@ -361,7 +389,7 @@ local function create_worktree(branch)
     if vim.v.shell_error == 0 then
       command = { "git", "worktree", "add", worktree_path, input }
     else
-      command = { "git", "worktree", "add", "-b", input, worktree_path, "HEAD" }
+      command = { "git", "worktree", "add", "-b", input, worktree_path, base }
     end
 
     local output = vim.fn.systemlist(command)
@@ -370,6 +398,7 @@ local function create_worktree(branch)
       return
     end
 
+    run_worktree_init(main_root, worktree_path, input, base)
     open_worktree(worktree_path, input)
   end
 
