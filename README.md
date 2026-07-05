@@ -66,6 +66,24 @@ Nix ファイルを整形します。
 nix fmt
 ```
 
+## Claude / Codex 設定
+
+Claude と Codex の移植可能な個人設定は Home Manager で管理します。
+
+- 共通メモリ: `modules/home/ai-agents/shared-memory.md`
+- Codex: `~/.codex/config.toml` と `~/.codex/AGENTS.md`
+- Claude: `~/.claude/settings.json` と `~/.claude/CLAUDE.md`
+
+共有するのはモデル、権限、プラグイン有効化、共通指示などの再生成できる設定だけです。認証情報、履歴、セッション、キャッシュ、SQLite DB、自動生成メモリは各 Mac のローカル状態として残します。
+
+初回反映時に既存ファイルと衝突する場合は、先にバックアップします。`darwin-rebuild` 経由では `home-manager.backupFileExtension = "backup"` により既存ファイルが退避されます。Home Manager だけを使う場合はバックアップオプション付きで実行します。
+
+```sh
+home-manager switch --flake .#default --impure -b backup
+```
+
+プラグイン本体の初回インストールや Google / GitHub / Gmail / Slack などの外部サービス認証は各 Mac で実行します。
+
 ## nvw
 
 `nvw` は git worktree を作成または開いて、そのディレクトリを Neovim で開くコマンドです。Home Manager の `home.packages` からインストールされます。
