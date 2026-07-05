@@ -1,75 +1,26 @@
 { pkgs, ... }:
 
 let
-  nvimWorktree = pkgs.writeShellApplication {
-    name = "nvim-worktree";
-    runtimeInputs = with pkgs; [
-      coreutils
-      git
-      neovim
+  nvw = pkgs.rustPlatform.buildRustPackage {
+    pname = "nvw";
+    version = "0.1.0";
+
+    src = ../../packages/nvw;
+    cargoLock.lockFile = ../../packages/nvw/Cargo.lock;
+
+    nativeBuildInputs = [
+      pkgs.makeWrapper
     ];
-    text = ''
-      if [ "$#" -lt 1 ]; then
-        echo "Usage: nvim-worktree <branch> [base-ref]" >&2
-        exit 2
-      fi
 
-      branch="$1"
-      if [ "$#" -ge 2 ]; then
-        base="$2"
-      else
-        base="HEAD"
-      fi
-
-      git rev-parse --show-toplevel >/dev/null 2>&1 || {
-        echo "nvim-worktree: not inside a git repository" >&2
-        exit 1
-      }
-
-      git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir)
-      main_root=$(dirname "$git_common_dir")
-      safe_name=$(printf '%s' "$branch" | tr '/[:space:]' '-' | tr -c 'A-Za-z0-9._-' '-' | tr -s '-')
-      worktree_dir="$main_root/.worktree"
-      worktree_path="$worktree_dir/$safe_name"
-      init_script="$worktree_dir/init.sh"
-
-      mkdir -p "$worktree_dir"
-
-      if [ -e "$worktree_path" ]; then
-        exec nvim "$worktree_path"
-      fi
-
-      if git show-ref --verify --quiet "refs/heads/$branch"; then
-        git worktree add "$worktree_path" "$branch"
-      else
-        git worktree add -b "$branch" "$worktree_path" "$base"
-      fi
-
-      if [ -f "$init_script" ]; then
-        (
-          cd "$worktree_path"
-          export WORKTREE_MAIN_ROOT="$main_root"
-          export WORKTREE_PATH="$worktree_path"
-          export WORKTREE_BRANCH="$branch"
-          export WORKTREE_BASE="$base"
-          sh "$init_script"
-        ) || {
-          status=$?
-          echo "nvim-worktree: warning: .worktree/init.sh failed with exit status $status" >&2
+    postInstall = ''
+      wrapProgram "$out/bin/nvw" \
+        --prefix PATH : ${
+          pkgs.lib.makeBinPath [
+            pkgs.bash
+            pkgs.git
+            pkgs.neovim
+          ]
         }
-      fi
-
-      exec nvim "$worktree_path"
-    '';
-  };
-
-  nvw = pkgs.writeShellApplication {
-    name = "nvw";
-    runtimeInputs = [
-      nvimWorktree
-    ];
-    text = ''
-      exec nvim-worktree "$@"
     '';
   };
 in
@@ -105,7 +56,6 @@ in
       vscode-langservers-extracted
     ])
     ++ [
-      nvimWorktree
       nvw
     ];
 

@@ -66,6 +66,50 @@ Nix ファイルを整形します。
 nix fmt
 ```
 
+## nvw
+
+`nvw` は git worktree を作成または開いて、そのディレクトリを Neovim で開くコマンドです。Home Manager の `home.packages` からインストールされます。
+
+```sh
+nvw <branch> [base-ref]
+```
+
+例:
+
+```sh
+nvw feature/example
+nvw feature/example origin/main
+```
+
+`base-ref` を省略した場合は `HEAD` を使います。既に同名の worktree ディレクトリがある場合は作成せず、そのディレクトリをそのまま Neovim で開きます。
+
+worktree はメイン worktree の直下にある `.worktree` ディレクトリへ作成されます。branch 名の `/` や空白は `-` に置き換えられます。
+
+```text
+<main-worktree>/.worktree/<sanitized-branch>
+```
+
+branch が既に存在する場合:
+
+```sh
+git worktree add <worktree-path> <branch>
+```
+
+branch が存在しない場合:
+
+```sh
+git worktree add -b <branch> <worktree-path> <base-ref>
+```
+
+`.worktree/init.sh` がある場合は、worktree 作成後にそのディレクトリで実行します。init script には次の環境変数が渡されます。
+
+```text
+WORKTREE_MAIN_ROOT=<main-worktree>
+WORKTREE_PATH=<worktree-path>
+WORKTREE_BRANCH=<branch>
+WORKTREE_BASE=<base-ref>
+```
+
 ## フォント設定
 
 フォントは `modules/darwin/default.nix` の `fonts.packages` で管理します。現在は FiraCode Nerd Font を入れています。
