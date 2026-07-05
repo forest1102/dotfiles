@@ -1,0 +1,42 @@
+local which_key = require("which-key")
+
+which_key.setup({})
+which_key.add({
+	{ "<leader>f", group = "Find" },
+	{ "<leader>fb", desc = "Buffers" },
+	{ "<leader>ff", desc = "Find files" },
+	{ "<leader>fg", desc = "Grep" },
+	{ "<leader>g", group = "Git" },
+	{ "<leader>gd", desc = "Git diff" },
+	{ "<leader>ge", desc = "Changed files diff" },
+	{ "<leader>gi", desc = "GitHub issues" },
+	{ "<leader>gg", desc = "LazyGit" },
+	{ "<leader>gs", desc = "Git status" },
+	{ "<leader>l", group = "LSP" },
+	{ "<leader>la", desc = "Code action" },
+	{ "<leader>lf", desc = "Format" },
+	{ "<leader>lr", desc = "Rename" },
+	{ "<leader>m", group = "Markdown" },
+	{ "<leader>t", group = "Terminal" },
+	{ "<leader>tt", desc = "Toggle terminal" },
+	{ "<leader>w", group = "Worktree" },
+	{ "<leader>wc", desc = "Create worktree" },
+	{ "<leader>wd", desc = "Delete current worktree" },
+	{ "<leader>ww", desc = "Select worktree" },
+	{ "<leader>x", group = "Diagnostics" },
+	{ "<leader>xx", desc = "Diagnostics" },
+	{ "<leader>xX", desc = "Buffer diagnostics" },
+	{ "<leader>c", desc = "Focus Claude" },
+	{ "<leader>C", group = "Claude" },
+	{ "<leader>CA", desc = "Continue Claude" },
+	{ "<leader>Ca", desc = "Accept Claude diff" },
+	{ "<leader>Cb", desc = "Add current buffer" },
+	{ "<leader>Cd", desc = "Deny Claude diff" },
+	{ "<leader>Cf", desc = "Focus Claude" },
+	{ "<leader>Cm", desc = "Select Claude model" },
+	{ "<leader>Cr", desc = "Resume Claude" },
+})
+which_key.add({
+	{ "<leader>C", group = "Claude", mode = "v" },
+	{ "<leader>Cs", desc = "Send selection to Claude", mode = "v" },
+})

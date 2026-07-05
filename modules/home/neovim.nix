@@ -74,6 +74,8 @@ let
   };
 in
 {
+  xdg.configFile."nvim/lua/dotfiles".source = ./neovim/lua/dotfiles;
+
   home.packages =
     (with pkgs; [
       bash-language-server
