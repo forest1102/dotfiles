@@ -110,6 +110,28 @@ WORKTREE_BRANCH=<branch>
 WORKTREE_BASE=<base-ref>
 ```
 
+## GitHub SSH キー
+
+Home Manager の activation 時に `~/.ssh/id_ed25519` が無ければ、GitHub 用の初期 SSH キーを生成します。既に `~/.ssh/id_ed25519` がある場合、その秘密鍵は上書きしません。
+
+公開鍵は次のコマンドで確認できます。
+
+```sh
+cat ~/.ssh/id_ed25519.pub
+```
+
+表示された公開鍵を GitHub の SSH keys 設定に登録します。
+
+```text
+GitHub > Settings > SSH and GPG keys > New SSH key
+```
+
+登録後、接続確認は次のコマンドで行います。
+
+```sh
+ssh -T git@github.com
+```
+
 ## フォント設定
 
 フォントは `modules/darwin/default.nix` の `fonts.packages` で管理します。現在は FiraCode Nerd Font を入れています。

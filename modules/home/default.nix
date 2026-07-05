@@ -3,6 +3,7 @@
 {
   imports = [
     ./neovim.nix
+    ./ssh.nix
   ];
 
   home.stateVersion = "26.05";
