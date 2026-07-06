@@ -9,6 +9,7 @@ let
     cargoLock.lockFile = ../../packages/nvw/Cargo.lock;
 
     nativeBuildInputs = [
+      pkgs.git
       pkgs.makeWrapper
     ];
     nativeCheckInputs = [
@@ -56,6 +57,57 @@ let
     pname = "nvw-rplugin";
     version = "0.1.0";
     src = nvwPluginSource;
+  };
+  nvimGitChanges = pkgs.rustPlatform.buildRustPackage {
+    pname = "nvim-git-changes";
+    version = "0.1.0";
+
+    src = ../..;
+    buildAndTestSubdir = "packages/nvim-git-changes";
+    cargoLock.lockFile = ../../Cargo.lock;
+
+    nativeBuildInputs = [
+      pkgs.makeWrapper
+    ];
+
+    preCheck = ''
+      export PATH=${pkgs.lib.makeBinPath [ pkgs.git ]}:$PATH
+    '';
+
+    postInstall = ''
+      wrapProgram "$out/bin/nvim-git-changes-rplugin" \
+        --prefix PATH : ${
+          pkgs.lib.makeBinPath [
+            pkgs.git
+          ]
+        }
+    '';
+  };
+  nvimGitChangesPluginSource = pkgs.runCommand "nvim-git-changes-neovim-plugin-source" { } ''
+    mkdir -p "$out/plugin"
+    cat > "$out/plugin/nvim-git-changes.vim" <<'EOF'
+    if exists('g:loaded_nvim_git_changes_rplugin')
+      finish
+    endif
+    let g:loaded_nvim_git_changes_rplugin = 1
+
+    let s:nvim_git_changes_rplugin = '${nvimGitChanges}/bin/nvim-git-changes-rplugin'
+
+    function! s:NvimGitChangesRequire(host_info) abort
+      return jobstart([s:nvim_git_changes_rplugin], {'rpc': v:true})
+    endfunction
+
+    call remote#host#Register('nvim_git_changes', '*', function('s:NvimGitChangesRequire'))
+    call remote#host#RegisterPlugin('nvim_git_changes', s:nvim_git_changes_rplugin, [
+          \ {'type': 'function', 'name': 'NvimGitChangesList', 'sync': 0, 'opts': {}},
+          \ {'type': 'function', 'name': 'NvimGitChangesHead', 'sync': 0, 'opts': {}},
+          \ ])
+    EOF
+  '';
+  nvimGitChangesNeovimPlugin = pkgs.vimUtils.buildVimPlugin {
+    pname = "nvim-git-changes-rplugin";
+    version = "0.1.0";
+    src = nvimGitChangesPluginSource;
   };
 in
 {
@@ -111,6 +163,7 @@ in
       trouble-nvim
       which-key-nvim
       nvim-lspconfig
+      nvimGitChangesNeovimPlugin
       nvwNeovimPlugin
       (nvim-treesitter.withPlugins (
         parsers: with parsers; [
