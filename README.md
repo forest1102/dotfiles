@@ -137,6 +137,19 @@ WORKTREE_BRANCH=<branch>
 WORKTREE_BASE=<base-ref>
 ```
 
+## nvim-git-changes
+
+`nvim-git-changes` は Neovim の `:GitChangedFiles` 用 remote plugin です。`nvw` とは別の Rust crate として管理し、git の変更一覧取得、porcelain v2 の解析、`HEAD:<file>` の内容取得だけを担当します。
+
+Neovim 側の Snacks picker、diff window、keymap は Lua 設定に残します。Rust 側は非同期 remote function として呼び出され、完了時に Lua の受信関数へ結果を返します。
+
+```vim
+:GitChangedFiles
+:GitChangedFilesClose
+```
+
+`<leader>ge` も `:GitChangedFiles` と同じ表示を切り替えます。変更一覧では `M` / `A` / `D` / `R` / `??` の短い状態ラベルを表示し、rename は `old -> new` として扱います。
+
 ## GitHub SSH キー
 
 Home Manager の activation 時に `~/.ssh/id_ed25519` が無ければ、GitHub 用の初期 SSH キーを生成します。既に `~/.ssh/id_ed25519` がある場合、その秘密鍵は上書きしません。

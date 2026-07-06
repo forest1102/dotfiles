@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "packages/nvw",
+  "packages/nvim-git-changes",
+]
+resolver = "2"
