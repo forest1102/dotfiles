@@ -83,11 +83,14 @@ in
     text = codexConfig;
     force = true;
   };
-  home.file.".codex/AGENTS.md".text = ''
-    # Codex global guidance
+  home.file.".codex/AGENTS.md" = {
+    text = ''
+      # Codex global guidance
 
-    ${sharedMemory}
-  '';
+      ${sharedMemory}
+    '';
+    force = true;
+  };
 
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   home.file.".claude/CLAUDE.md".text = ''
