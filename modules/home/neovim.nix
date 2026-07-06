@@ -21,7 +21,38 @@ let
             pkgs.neovim
           ]
         }
+      cat > "$out/bin/nvw-rplugin" <<EOF
+      #!${pkgs.bash}/bin/bash
+      export NVW_RPLUGIN=1
+      exec "$out/bin/nvw" "\$@"
+      EOF
+      chmod +x "$out/bin/nvw-rplugin"
     '';
+  };
+  nvwPluginSource = pkgs.runCommand "nvw-neovim-plugin-source" { } ''
+    mkdir -p "$out/plugin"
+    cat > "$out/plugin/nvw.vim" <<'EOF'
+    if exists('g:loaded_nvw_rplugin')
+      finish
+    endif
+    let g:loaded_nvw_rplugin = 1
+
+    let s:nvw_rplugin = '${nvw}/bin/nvw-rplugin'
+
+    function! s:NvwRequire(host_info) abort
+      return jobstart([s:nvw_rplugin], {'rpc': v:true})
+    endfunction
+
+    call remote#host#Register('nvw', '*', function('s:NvwRequire'))
+    call remote#host#RegisterPlugin('nvw', s:nvw_rplugin, [
+          \ {'type': 'function', 'name': 'NvwEnsure', 'sync': 1, 'opts': {}},
+          \ ])
+    EOF
+  '';
+  nvwNeovimPlugin = pkgs.vimUtils.buildVimPlugin {
+    pname = "nvw-rplugin";
+    version = "0.1.0";
+    src = nvwPluginSource;
   };
 in
 {
@@ -77,6 +108,7 @@ in
       trouble-nvim
       which-key-nvim
       nvim-lspconfig
+      nvwNeovimPlugin
       (nvim-treesitter.withPlugins (
         parsers: with parsers; [
           bash

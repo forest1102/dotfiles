@@ -101,6 +101,15 @@ nvw feature/example origin/main
 
 `base-ref` を省略した場合は `HEAD` を使います。既に同名の worktree ディレクトリがある場合は作成せず、そのディレクトリをそのまま Neovim で開きます。
 
+Neovim 内からは remote plugin 経由で同じ作成処理を呼び出せます。
+
+```vim
+:Nvw <branch> [base-ref]
+:WorktreeCreate <branch>
+```
+
+`<leader>wc` も `:Nvw` と同じ Rust 実装を使います。remote plugin host は Home Manager が生成する `nvw-rplugin` から起動され、通常は直接実行しません。
+
 worktree はメイン worktree の直下にある `.worktree` ディレクトリへ作成されます。branch 名の `/` や空白は `-` に置き換えられます。
 
 ```text
