@@ -11,7 +11,6 @@ let
     nativeBuildInputs = [
       pkgs.makeWrapper
     ];
-
     nativeCheckInputs = [
       pkgs.git
     ];
