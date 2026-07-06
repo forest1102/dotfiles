@@ -49,15 +49,6 @@ local function get_main_worktree_root()
 	return vim.fn.fnamemodify(lines[1], ":h")
 end
 
-local function sanitize_worktree_name(value)
-	local sanitized = value:gsub("[/%s]+", "-"):gsub("[^%w%._%-]", "-"):gsub("%-+", "-")
-	if sanitized == "" then
-		return "worktree"
-	end
-
-	return sanitized
-end
-
 local function open_worktree(path, label)
 	if vim.fn.isdirectory(path) ~= 1 then
 		vim.notify("Directory not found: " .. path, vim.log.levels.ERROR, { title = "Worktree" })
@@ -98,80 +89,45 @@ local function select_worktree()
 	end)
 end
 
-local function create_worktree(branch)
-	local function run_worktree_init(main_root, worktree_path, branch_name, base)
-		local init_script = main_root .. "/.worktree/init.sh"
-		if vim.fn.filereadable(init_script) ~= 1 then
-			return
-		end
-
-		local result = vim.system({ "sh", init_script }, {
-			cwd = worktree_path,
-			env = {
-				WORKTREE_MAIN_ROOT = main_root,
-				WORKTREE_PATH = worktree_path,
-				WORKTREE_BRANCH = branch_name,
-				WORKTREE_BASE = base,
-			},
-			text = true,
-		}):wait()
-
-		if result.code ~= 0 then
-			local output = vim.trim(table.concat({ result.stdout or "", result.stderr or "" }, "\n"))
-			local message = ".worktree/init.sh failed with exit status " .. result.code
-			if output ~= "" then
-				message = message .. "\n" .. output
-			end
-			vim.notify(message, vim.log.levels.WARN, { title = "Worktree" })
-		end
+local function create_worktree(args)
+	local branch
+	local base = "HEAD"
+	if type(args) == "table" then
+		branch = args[1]
+		base = args[2] or base
+	else
+		branch = args
 	end
 
-	local function run(input)
+	local function run(input, input_base)
 		input = input and vim.trim(input) or ""
+		input_base = input_base and vim.trim(input_base) or "HEAD"
 		if input == "" then
 			return
 		end
 
-		local main_root = get_main_worktree_root()
-		if not main_root then
+		local ok, result = pcall(vim.fn.NvwEnsure, input, input_base)
+		if not ok then
+			vim.notify(tostring(result), vim.log.levels.ERROR, { title = "Worktree" })
 			return
 		end
 
-		local worktree_dir = main_root .. "/.worktree"
-		local worktree_path = worktree_dir .. "/" .. sanitize_worktree_name(input)
-		local base = "HEAD"
-
-		if vim.fn.isdirectory(worktree_path) == 1 then
-			open_worktree(worktree_path, input)
+		if type(result) ~= "string" or result == "" then
+			vim.notify("NvwEnsure returned no worktree path", vim.log.levels.ERROR, { title = "Worktree" })
 			return
 		end
 
-		vim.fn.mkdir(worktree_dir, "p")
-		vim.fn.system({ "git", "show-ref", "--verify", "--quiet", "refs/heads/" .. input })
-
-		local command
-		if vim.v.shell_error == 0 then
-			command = { "git", "worktree", "add", worktree_path, input }
-		else
-			command = { "git", "worktree", "add", "-b", input, worktree_path, base }
-		end
-
-		local output = vim.fn.systemlist(command)
-		if vim.v.shell_error ~= 0 then
-			vim.notify(table.concat(output, "\n"), vim.log.levels.ERROR, { title = "Worktree" })
-			return
-		end
-
-		run_worktree_init(main_root, worktree_path, input, base)
-		open_worktree(worktree_path, input)
+		open_worktree(result, input)
 	end
 
 	if branch and branch ~= "" then
-		run(branch)
+		run(branch, base)
 		return
 	end
 
-	vim.ui.input({ prompt = "Worktree branch: " }, run)
+	vim.ui.input({ prompt = "Worktree branch: " }, function(input)
+		run(input, base)
+	end)
 end
 
 local function delete_current_worktree()
@@ -263,9 +219,12 @@ local function list_github_issues()
 	end)
 end
 
+vim.api.nvim_create_user_command("Nvw", function(command)
+	create_worktree(command.fargs)
+end, { nargs = "*", desc = "Create and move to worktree" })
 vim.api.nvim_create_user_command("WorktreeCreate", function(command)
-	create_worktree(command.args)
-end, { nargs = "?", desc = "Create and move to worktree" })
+	create_worktree(command.fargs)
+end, { nargs = "*", desc = "Create and move to worktree" })
 vim.api.nvim_create_user_command("WorktreeDeleteCurrent", delete_current_worktree, { desc = "Delete current worktree" })
 vim.api.nvim_create_user_command("WorktreeSelect", select_worktree, { desc = "Select and move to worktree" })
 vim.api.nvim_create_user_command("GithubIssueList", list_github_issues, { desc = "List GitHub issues" })

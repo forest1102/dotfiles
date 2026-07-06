@@ -79,7 +79,10 @@ in
 {
   home.file.".config/ai-agents/shared-memory.md".source = ./ai-agents/shared-memory.md;
 
-  home.file.".codex/config.toml".text = codexConfig;
+  home.file.".codex/config.toml" = {
+    text = codexConfig;
+    force = true;
+  };
   home.file.".codex/AGENTS.md".text = ''
     # Codex global guidance
 
