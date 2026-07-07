@@ -14,6 +14,65 @@ local diff_windows = {
 	head = nil,
 	worktree = nil,
 }
+local diff_layout_snapshot = nil
+
+local function save_diff_layout_snapshot()
+	if diff_layout_snapshot then
+		return
+	end
+
+	local tabpage = vim.api.nvim_get_current_tabpage()
+	local snapshot = {
+		tabpage = tabpage,
+		current_win = vim.api.nvim_get_current_win(),
+		restore_cmd = vim.fn.winrestcmd(),
+		views = {},
+	}
+
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+		local ok, config = pcall(vim.api.nvim_win_get_config, win)
+		if ok and config.relative == "" then
+			local view = nil
+			vim.api.nvim_win_call(win, function()
+				view = vim.fn.winsaveview()
+			end)
+			snapshot.views[win] = {
+				buffer = vim.api.nvim_win_get_buf(win),
+				view = view,
+			}
+		end
+	end
+
+	diff_layout_snapshot = snapshot
+end
+
+local function restore_diff_layout_snapshot()
+	local snapshot = diff_layout_snapshot
+	diff_layout_snapshot = nil
+	if not snapshot or not vim.api.nvim_tabpage_is_valid(snapshot.tabpage) then
+		return
+	end
+
+	if vim.api.nvim_get_current_tabpage() ~= snapshot.tabpage then
+		return
+	end
+
+	for win, state in pairs(snapshot.views) do
+		if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == state.buffer then
+			vim.api.nvim_win_call(win, function()
+				pcall(vim.fn.winrestview, state.view)
+			end)
+		end
+	end
+
+	if snapshot.restore_cmd and snapshot.restore_cmd ~= "" then
+		pcall(vim.cmd, snapshot.restore_cmd)
+	end
+
+	if vim.api.nvim_win_is_valid(snapshot.current_win) then
+		vim.api.nvim_set_current_win(snapshot.current_win)
+	end
+end
 local changed_files_state = {
 	list_request = nil,
 	head_request = nil,
@@ -275,6 +334,7 @@ local function close_changed_files_view(picker)
 
 	diff_windows.head = nil
 	diff_windows.worktree = nil
+	restore_diff_layout_snapshot()
 end
 
 local function set_scratch_diff_buffer(name, lines, filetype)
@@ -576,6 +636,7 @@ local function toggle_changed_files_explorer()
 	end
 
 	close_file_explorer()
+	save_diff_layout_snapshot()
 	request_changed_files()
 end
 
