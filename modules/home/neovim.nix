@@ -12,6 +12,10 @@ let
       pkgs.makeWrapper
     ];
 
+    nativeCheckInputs = [
+      pkgs.git
+    ];
+
     postInstall = ''
       wrapProgram "$out/bin/nvw" \
         --prefix PATH : ${

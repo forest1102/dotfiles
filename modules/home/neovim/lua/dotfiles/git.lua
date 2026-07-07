@@ -9,6 +9,65 @@ local diff_windows = {
 	head = nil,
 	worktree = nil,
 }
+local diff_layout_snapshot = nil
+
+local function save_diff_layout_snapshot()
+	if diff_layout_snapshot then
+		return
+	end
+
+	local tabpage = vim.api.nvim_get_current_tabpage()
+	local snapshot = {
+		tabpage = tabpage,
+		current_win = vim.api.nvim_get_current_win(),
+		restore_cmd = vim.fn.winrestcmd(),
+		views = {},
+	}
+
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+		local ok, config = pcall(vim.api.nvim_win_get_config, win)
+		if ok and config.relative == "" then
+			local view = nil
+			vim.api.nvim_win_call(win, function()
+				view = vim.fn.winsaveview()
+			end)
+			snapshot.views[win] = {
+				buffer = vim.api.nvim_win_get_buf(win),
+				view = view,
+			}
+		end
+	end
+
+	diff_layout_snapshot = snapshot
+end
+
+local function restore_diff_layout_snapshot()
+	local snapshot = diff_layout_snapshot
+	diff_layout_snapshot = nil
+	if not snapshot or not vim.api.nvim_tabpage_is_valid(snapshot.tabpage) then
+		return
+	end
+
+	if vim.api.nvim_get_current_tabpage() ~= snapshot.tabpage then
+		return
+	end
+
+	for win, state in pairs(snapshot.views) do
+		if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == state.buffer then
+			vim.api.nvim_win_call(win, function()
+				pcall(vim.fn.winrestview, state.view)
+			end)
+		end
+	end
+
+	if snapshot.restore_cmd and snapshot.restore_cmd ~= "" then
+		pcall(vim.cmd, snapshot.restore_cmd)
+	end
+
+	if vim.api.nvim_win_is_valid(snapshot.current_win) then
+		vim.api.nvim_set_current_win(snapshot.current_win)
+	end
+end
 
 local function close_file_explorer()
 	local explorer = Snacks.picker.get({ source = "explorer" })[1]
@@ -90,8 +149,7 @@ local function changed_files_tree_finder(opts, ctx)
 	end
 end
 
-local function keep_changed_files_open()
-end
+local function keep_changed_files_open() end
 
 local function get_git_root()
 	local lines = vim.fn.systemlist({ "git", "rev-parse", "--show-toplevel" })
@@ -214,6 +272,7 @@ local function close_changed_files_view(picker)
 
 	diff_windows.head = nil
 	diff_windows.worktree = nil
+	restore_diff_layout_snapshot()
 end
 
 local function set_scratch_diff_buffer(name, lines, filetype)
@@ -351,6 +410,7 @@ local function toggle_changed_files_explorer()
 		return
 	end
 
+	save_diff_layout_snapshot()
 	close_file_explorer()
 	Snacks.picker.git_status({
 		title = "Changed files",
@@ -401,7 +461,11 @@ end, "Git status")
 util.map("n", "<leader>gd", function()
 	Snacks.picker.git_diff({ show_empty = true })
 end, "Git diff")
-vim.api.nvim_create_user_command("GitChangedFiles", toggle_changed_files_explorer, { desc = "Toggle changed files diff" })
+vim.api.nvim_create_user_command(
+	"GitChangedFiles",
+	toggle_changed_files_explorer,
+	{ desc = "Toggle changed files diff" }
+)
 vim.api.nvim_create_user_command("GitChangedFilesClose", function()
 	local explorer = find_changed_files_explorer()
 	if explorer or is_valid_window(diff_windows.head) or is_valid_window(diff_windows.worktree) then

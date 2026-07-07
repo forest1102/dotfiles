@@ -149,7 +149,13 @@ local function close_file_explorer_if_open()
 end
 
 local function close_changed_files_explorer_if_open()
+	local changed_files = changed_files_explorer()
+	if not changed_files or changed_files.closed then
+		return false
+	end
+
 	pcall(vim.cmd, "GitChangedFilesClose")
+	return true
 end
 
 local function focus_folder_explorer()
@@ -162,14 +168,22 @@ local function focus_folder_explorer()
 	return true
 end
 
-local function open_folder_explorer_only()
-	close_changed_files_explorer_if_open()
+local function open_folder_explorer()
 	local explorer = Snacks.picker.get({ source = "explorer" })[1]
 	if explorer and not explorer.closed then
 		explorer:focus("list", { show = true })
 	else
 		Snacks.explorer()
 	end
+end
+
+local function open_folder_explorer_only()
+	if close_changed_files_explorer_if_open() then
+		vim.schedule(open_folder_explorer)
+		return
+	end
+
+	open_folder_explorer()
 end
 
 local function focus_file_window()
@@ -181,7 +195,13 @@ local function focus_file_window()
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		local ok, config = pcall(vim.api.nvim_win_get_config, win)
 		local buffer = vim.api.nvim_win_get_buf(win)
-		if ok and config.relative == "" and win ~= current and not is_explorer_window(win) and vim.bo[buffer].buftype == "" then
+		if
+			ok
+			and config.relative == ""
+			and win ~= current
+			and not is_explorer_window(win)
+			and vim.bo[buffer].buftype == ""
+		then
 			vim.api.nvim_set_current_win(win)
 			return true
 		end

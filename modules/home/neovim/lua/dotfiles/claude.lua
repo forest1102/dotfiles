@@ -8,6 +8,26 @@ require("claudecode").setup({
 		split_width_percentage = 0.30,
 		diff_split_width_percentage = 0.20,
 		auto_close = true,
+		snacks_win_opts = {
+			keys = {
+				term_normal = {
+					"<Esc>",
+					function()
+						local channel = vim.b.terminal_job_id
+						if not channel or channel == 0 then
+							channel = vim.bo.channel
+						end
+						if channel and channel ~= 0 then
+							vim.fn.chansend(channel, "\27")
+						end
+						return ""
+					end,
+					mode = "t",
+					expr = true,
+					desc = "Pass escape to Claude",
+				},
+			},
+		},
 	},
 	diff_opts = {
 		layout = "vertical",
