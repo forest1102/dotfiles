@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -11,13 +11,19 @@
   home.sessionPath = [
     "$HOME/.local/bin"
   ];
+  home.packages = with pkgs; [
+    tmux
+  ];
 
   programs.home-manager.enable = true;
+  home.file.".config/zsh/worktree-title.zsh".source = ./worktree-title.zsh;
 
   programs.zsh = {
     enable = true;
     initContent = ''
       if [[ -o interactive ]]; then
+        source "$HOME/.config/zsh/worktree-title.zsh"
+
         export VOLTA_HOME="''${VOLTA_HOME:-$HOME/.volta}"
         path=("$VOLTA_HOME/bin" ''${path:#$VOLTA_HOME/bin})
 

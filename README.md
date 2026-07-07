@@ -137,6 +137,27 @@ WORKTREE_BRANCH=<branch>
 WORKTREE_BASE=<base-ref>
 ```
 
+### tmux window の PR 状態表示
+
+zsh の interactive shell では `gh pr create` をラップし、PR 作成が成功した後に現在の worktree の PR 状態で tmux window 名を更新します。
+
+```text
+[open] feature/example
+[draft] feature/example
+[merged] feature/example
+[closed] feature/example
+[no-pr] feature/example
+[unknown] feature/example
+```
+
+tmux 内では window 名に加えて状態ごとの色を付けます。`open` は green、`draft` は yellow、`merged` は cyan、`closed` は red、`unknown` は blue、PR が無い場合は default です。通常のターミナルでは同じ文字列を terminal title に設定します。
+
+Web UI や別ツールで PR を作った場合は、次のコマンドで手動更新できます。
+
+```sh
+worktree-title-refresh
+```
+
 ## GitHub SSH キー
 
 Home Manager の activation 時に `~/.ssh/id_ed25519` が無ければ、GitHub 用の初期 SSH キーを生成します。既に `~/.ssh/id_ed25519` がある場合、その秘密鍵は上書きしません。
