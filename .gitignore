@@ -9,6 +9,7 @@ result-*
 **/.nixos-test-history
 
 # Ignore Cargo build outputs for local packages
+target/
 packages/*/target/
 
 # Ignore Neovim log files
