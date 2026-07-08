@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 let
   sharedMemory = builtins.readFile ./ai-agents/shared-memory.md;
@@ -86,75 +86,27 @@ let
     ${sharedMemory}
   '';
   codexConfigFile = pkgs.writeText "codex-config.toml" codexConfig;
-  codexAgentsFile = pkgs.writeText "codex-AGENTS.md" codexAgents;
   claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
-  claudeAgentsFile = pkgs.writeText "claude-CLAUDE.md" claudeAgents;
-  aiAgentsSync = pkgs.writeShellApplication {
-    name = "ai-agents-sync";
-    runtimeInputs = [ pkgs.coreutils ];
-    text = ''
-      set -euo pipefail
-
-      timestamp="$(date +%Y%m%d%H%M%S)"
-
-      backup_existing() {
-        target="$1"
-        backup="$target.backup.$timestamp"
-        counter=0
-
-        while [ -e "$backup" ] || [ -L "$backup" ]; do
-          counter=$((counter + 1))
-          backup="$target.backup.$timestamp.$counter"
-        done
-
-        if [ -L "$target" ] && [ ! -e "$target" ]; then
-          mv "$target" "$backup"
-        else
-          cp -p "$target" "$backup"
-        fi
-
-        printf 'backed up %s -> %s\n' "$target" "$backup"
-      }
-
-      install_file() {
-        source="$1"
-        target="$2"
-        mode="$3"
-        directory="$(dirname "$target")"
-
-        mkdir -p "$directory"
-
-        if [ -d "$target" ] && [ ! -L "$target" ]; then
-          printf 'ai-agents-sync: refusing to replace directory: %s\n' "$target" >&2
-          return 1
-        fi
-
-        tmp="$(mktemp "$directory/.ai-agents-sync.XXXXXX")"
-        cp "$source" "$tmp"
-        chmod "$mode" "$tmp"
-
-        if [ -e "$target" ] || [ -L "$target" ]; then
-          if cmp -s "$tmp" "$target"; then
-            rm -f "$tmp"
-            printf 'unchanged %s\n' "$target"
-            return 0
-          fi
-
-          backup_existing "$target"
-        fi
-
-        mv -f "$tmp" "$target"
-        printf 'synced %s\n' "$target"
-      }
-
-      install_file ${codexConfigFile} "$HOME/.codex/config.toml" 600
-      install_file ${codexAgentsFile} "$HOME/.codex/AGENTS.md" 644
-      install_file ${claudeSettingsFile} "$HOME/.claude/settings.json" 600
-      install_file ${claudeAgentsFile} "$HOME/.claude/CLAUDE.md" 644
-      install_file ${./ai-agents/shared-memory.md} "$HOME/.config/ai-agents/shared-memory.md" 644
-    '';
-  };
 in
 {
-  home.packages = [ aiAgentsSync ];
+  home.file.".claude/agents/executor.md".source = ./ai-agents/claude/agents/executor.md;
+  home.file.".claude/skills/coordinator-driven-development/SKILL.md".source =
+    ./ai-agents/claude/skills/coordinator-driven-development/SKILL.md;
+  home.file.".claude/CLAUDE.md".text = claudeAgents;
+  home.file.".codex/AGENTS.md".text = codexAgents;
+
+  xdg.configFile."ai-agents/shared-memory.md".source = ./ai-agents/shared-memory.md;
+
+  home.activation.seedAiAgentFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    seed() {
+      local src dest mode
+      src="$1"; dest="$2"; mode="$3"
+      if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then
+        run mkdir -p "$(dirname "$dest")"
+        run install -m "$mode" "$src" "$dest"
+      fi
+    }
+    seed ${codexConfigFile} "''${HOME}/.codex/config.toml" 600
+    seed ${claudeSettingsFile} "''${HOME}/.claude/settings.json" 600
+  '';
 }
