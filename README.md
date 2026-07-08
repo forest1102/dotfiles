@@ -68,19 +68,21 @@ nix fmt
 
 ## Claude / Codex 設定
 
-Claude と Codex の移植可能な個人設定は、このリポジトリから `ai-agents-sync` コマンドで同期します。Home Manager は同期コマンドだけをインストールし、AI 関連の設定ファイルやメモリー本体は自動更新しません。
+Claude と Codex の移植可能な個人設定は `modules/home/ai-agents.nix` で管理していて、`darwin-rebuild switch --flake .#default --impure` または `home-manager switch --flake .#default --impure` を実行するだけで自動的に反映されます。手動での同期コマンドは不要です。
 
-- 共通メモリ: `modules/home/ai-agents/shared-memory.md`
-- Codex: `~/.codex/config.toml` と `~/.codex/AGENTS.md`
-- Claude: `~/.claude/settings.json` と `~/.claude/CLAUDE.md`
+symlink として自動配布し、以後も nix 側の変更が switch のたびに反映されるファイル:
+
+- `~/.claude/CLAUDE.md`(共通メモリを含む Claude 向け生成テキスト)
+- `~/.codex/AGENTS.md`(共通メモリを含む Codex 向け生成テキスト)
+- `~/.config/ai-agents/shared-memory.md`(`modules/home/ai-agents/shared-memory.md` の実体)
+- `~/.claude/agents/executor.md`
+- `~/.claude/skills/coordinator-driven-development/SKILL.md`
+
+既存の実ファイルと衝突する場合は、`flake.nix` の `home-manager.backupFileExtension = "backup"` の設定により `<ファイル名>.backup` に退避してから symlink に置き換わるため、事前に手動で消したりリネームしたりする必要はありません。
+
+一方、`~/.claude/settings.json` と `~/.codex/config.toml` はツール自身が実行時に書き換えるファイルのため symlink 管理できません。これらはファイルがまだ存在しない場合にだけ mode 600 で初期コピー(seed)されます。一度ファイルが存在すれば、それ以降 Home Manager は一切変更しません。nix 側の定義を再度反映したい場合は、対象ファイルを削除してから switch し直してください。
 
 共有するのはモデル、権限、プラグイン有効化、共通指示などの再生成できる設定だけです。認証情報、履歴、セッション、キャッシュ、SQLite DB、自動生成メモリは各 Mac のローカル状態として残します。
-
-設定を反映するときだけ、次のコマンドを実行します。既存ファイルの内容が変わる場合は `*.backup.YYYYMMDDHHMMSS` に退避してから上書きするため、固定名の `backup` ファイル衝突で失敗しません。
-
-```sh
-ai-agents-sync
-```
 
 プラグイン本体の初回インストールや Google / GitHub / Gmail / Slack などの外部サービス認証は各 Mac で実行します。
 
