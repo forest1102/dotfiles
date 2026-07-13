@@ -63,7 +63,8 @@ local function open_worktree(path, label)
 end
 
 local function select_worktree()
-	local lines = vim.fn.systemlist({ "git", "worktree", "list", "--porcelain" })
+	local cwd = vim.fn.getcwd(-1, 0)
+	local lines = vim.fn.systemlist({ "git", "-C", cwd, "worktree", "list", "--porcelain" })
 	if vim.v.shell_error ~= 0 then
 		vim.notify(table.concat(lines, "\n"), vim.log.levels.ERROR, { title = "Worktree" })
 		return
@@ -90,6 +91,7 @@ local function select_worktree()
 end
 
 local function create_worktree(args)
+	local cwd = vim.fn.getcwd(-1, 0)
 	local branch
 	local base = "HEAD"
 	if type(args) == "table" then
@@ -106,7 +108,7 @@ local function create_worktree(args)
 			return
 		end
 
-		local ok, result = pcall(vim.fn.NvwEnsure, input, input_base)
+		local ok, result = pcall(vim.fn.NvwEnsure, cwd, input, input_base)
 		if not ok then
 			vim.notify(tostring(result), vim.log.levels.ERROR, { title = "Worktree" })
 			return
