@@ -3,8 +3,10 @@ local function run()
 	local temp = vim.fn.resolve(vim.fn.tempname())
 	local repo_a = temp .. "/repo-a"
 	local repo_b = temp .. "/repo-b"
+	local selected_worktree = repo_a .. "/.worktree/selected"
 	vim.fn.mkdir(repo_a, "p")
 	vim.fn.mkdir(repo_b, "p")
+	vim.fn.mkdir(selected_worktree, "p")
 	assert(vim.fn.system({ "git", "init", "-q", repo_a }) == "")
 	assert(vim.v.shell_error == 0)
 	assert(vim.fn.system({ "git", "init", "-q", repo_b }) == "")
@@ -25,21 +27,40 @@ local function run()
 		return cwd
 	end
 
-	local original_systemlist = vim.fn.systemlist
 	local systemlist_args
 	vim.fn.systemlist = function(args)
 		systemlist_args = vim.deepcopy(args)
-		return original_systemlist(args)
+		if args[2] == "-C" then
+			return {
+				"worktree " .. selected_worktree,
+				"HEAD 0123456789abcdef0123456789abcdef01234567",
+				"branch refs/heads/feature/selected",
+				"",
+			}
+		end
+		return {}
 	end
-	vim.ui.select = function() end
+	local input_callback
+	vim.ui.input = function(_, callback)
+		input_callback = callback
+	end
+	local select_items
+	local select_callback
+	vim.ui.select = function(items, _, callback)
+		select_items = items
+		select_callback = callback
+	end
 
 	require("dotfiles.worktree")
 
 	vim.cmd("tabnew")
 	vim.cmd("tcd " .. vim.fn.fnameescape(repo_a))
-	vim.cmd("WorktreeCreate feature/repo-a")
+	vim.cmd("WorktreeCreate")
+	assert(type(input_callback) == "function")
 
 	vim.cmd("tabnew")
+	vim.cmd("tcd " .. vim.fn.fnameescape(repo_b))
+	input_callback("feature/repo-a")
 	vim.cmd("tcd " .. vim.fn.fnameescape(repo_b))
 	vim.cmd("WorktreeCreate feature/repo-b origin/main")
 
@@ -52,19 +73,26 @@ local function run()
 	)
 
 	vim.cmd("tabnew")
-	vim.cmd("tcd " .. vim.fn.fnameescape(repo_b))
+	vim.cmd("tcd " .. vim.fn.fnameescape(repo_a))
 	vim.cmd("WorktreeSelect")
 	assert(
 		vim.deep_equal(systemlist_args, {
 			"git",
 			"-C",
-			repo_b,
+			repo_a,
 			"worktree",
 			"list",
 			"--porcelain",
 		}),
 		vim.inspect(systemlist_args)
 	)
+	assert(type(select_callback) == "function")
+	assert(select_items[1].path == selected_worktree, vim.inspect(select_items))
+
+	vim.cmd("tabnew")
+	vim.cmd("tcd " .. vim.fn.fnameescape(repo_b))
+	select_callback(select_items[1])
+	assert(vim.fn.getcwd(-1, 0) == selected_worktree, vim.fn.getcwd(-1, 0))
 
 	vim.fn.delete(temp, "rf")
 end
