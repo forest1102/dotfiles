@@ -56,8 +56,14 @@ fn handles_nvw_ensure_request_with_default_base() {
         .canonicalize()
         .expect("repo path should resolve");
 
-    let result = handle_rplugin_request(repo.path(), "NvwEnsure", vec![Value::from("feature/rpc")])
-        .expect("request should succeed");
+    let result = handle_rplugin_request(
+        "NvwEnsure",
+        vec![
+            Value::from(repo.path().to_string_lossy().into_owned()),
+            Value::from("feature/rpc"),
+        ],
+    )
+    .expect("request should succeed");
 
     assert_eq!(
         result.as_str(),
@@ -72,8 +78,56 @@ fn handles_nvw_ensure_request_with_default_base() {
 }
 
 #[test]
+fn uses_repository_cwd_from_nvw_ensure_arguments() {
+    let requested_repo = init_repo();
+    let requested_root = requested_repo
+        .path()
+        .canonicalize()
+        .expect("requested repo path should resolve");
+
+    let result = handle_rplugin_request(
+        "NvwEnsure",
+        vec![
+            Value::from(requested_repo.path().to_string_lossy().into_owned()),
+            Value::from("feature/requested-repo"),
+        ],
+    )
+    .expect("request should succeed");
+
+    assert_eq!(
+        result.as_str(),
+        Some(
+            requested_root
+                .join(".worktree")
+                .join("feature-requested-repo")
+                .to_string_lossy()
+                .as_ref()
+        )
+    );
+}
+
+#[test]
+fn rejects_nvw_ensure_request_without_cwd() {
+    let error =
+        handle_rplugin_request("NvwEnsure", Vec::new()).expect_err("missing cwd should fail");
+
+    assert_eq!(error.as_str(), Some("NvwEnsure requires cwd"));
+}
+
+#[test]
+fn rejects_nvw_ensure_request_with_empty_cwd() {
+    let error = handle_rplugin_request(
+        "NvwEnsure",
+        vec![Value::from(""), Value::from("feature/empty-cwd")],
+    )
+    .expect_err("empty cwd should fail");
+
+    assert_eq!(error.as_str(), Some("NvwEnsure requires cwd"));
+}
+
+#[test]
 fn rejects_nvw_ensure_request_without_branch() {
-    let error = handle_rplugin_request(Path::new("."), "NvwEnsure", Vec::new())
+    let error = handle_rplugin_request("NvwEnsure", vec![Value::from("/tmp/repo")])
         .expect_err("missing branch should fail");
 
     assert_eq!(error.as_str(), Some("NvwEnsure requires branch"));
@@ -82,9 +136,8 @@ fn rejects_nvw_ensure_request_without_branch() {
 #[test]
 fn reports_git_errors_from_nvw_ensure_request() {
     let error = handle_rplugin_request(
-        Path::new("/"),
         "NvwEnsure",
-        vec![Value::from("feature/outside-repo")],
+        vec![Value::from("/"), Value::from("feature/outside-repo")],
     )
     .expect_err("outside repo should fail");
 
@@ -95,15 +148,15 @@ fn reports_git_errors_from_nvw_ensure_request() {
 fn converts_rpc_request_to_success_response() {
     let repo = init_repo();
 
-    let response = handle_rpc_message(
-        repo.path(),
+    let response = handle_rpc_message(Value::Array(vec![
+        Value::from(0),
+        Value::from(42),
+        Value::from("NvwEnsure"),
         Value::Array(vec![
-            Value::from(0),
-            Value::from(42),
-            Value::from("NvwEnsure"),
-            Value::Array(vec![Value::from("feature/message")]),
+            Value::from(repo.path().to_string_lossy().into_owned()),
+            Value::from("feature/message"),
         ]),
-    )
+    ]))
     .expect("request should produce response");
 
     let values = response.as_array().expect("response should be an array");
@@ -118,20 +171,17 @@ fn converts_rpc_request_to_success_response() {
 
 #[test]
 fn converts_rpc_request_to_error_response() {
-    let response = handle_rpc_message(
-        Path::new("."),
-        Value::Array(vec![
-            Value::from(0),
-            Value::from(43),
-            Value::from("NvwEnsure"),
-            Value::Array(Vec::new()),
-        ]),
-    )
+    let response = handle_rpc_message(Value::Array(vec![
+        Value::from(0),
+        Value::from(43),
+        Value::from("NvwEnsure"),
+        Value::Array(Vec::new()),
+    ]))
     .expect("request should produce response");
 
     let values = response.as_array().expect("response should be an array");
     assert_eq!(values[0].as_i64(), Some(1));
     assert_eq!(values[1].as_i64(), Some(43));
-    assert_eq!(values[2].as_str(), Some("NvwEnsure requires branch"));
+    assert_eq!(values[2].as_str(), Some("NvwEnsure requires cwd"));
     assert!(values[3].is_nil());
 }

@@ -177,7 +177,7 @@ pub fn rplugin_specs() -> Vec<Value> {
     ])]
 }
 
-pub fn handle_rplugin_request(cwd: &Path, method: &str, args: Vec<Value>) -> Result<Value, Value> {
+pub fn handle_rplugin_request(method: &str, args: Vec<Value>) -> Result<Value, Value> {
     if method == "specs" {
         return Ok(Value::Array(rplugin_specs()));
     }
@@ -187,17 +187,24 @@ pub fn handle_rplugin_request(cwd: &Path, method: &str, args: Vec<Value>) -> Res
     }
 
     let args = normalize_function_args(args);
-    let Some(branch) = args.first().and_then(Value::as_str) else {
+    let Some(cwd) = args
+        .first()
+        .and_then(Value::as_str)
+        .filter(|cwd| !cwd.is_empty())
+    else {
+        return Err(Value::from("NvwEnsure requires cwd"));
+    };
+    let Some(branch) = args.get(1).and_then(Value::as_str) else {
         return Err(Value::from("NvwEnsure requires branch"));
     };
-    let base = args.get(1).and_then(Value::as_str).unwrap_or("HEAD");
+    let base = args.get(2).and_then(Value::as_str).unwrap_or("HEAD");
 
-    ensure_worktree(cwd, branch, base)
+    ensure_worktree(Path::new(cwd), branch, base)
         .map(|path| Value::from(path.to_string_lossy().into_owned()))
         .map_err(|error| Value::from(error.to_string()))
 }
 
-pub fn handle_rpc_message(cwd: &Path, message: Value) -> Result<Value, NvwError> {
+pub fn handle_rpc_message(message: Value) -> Result<Value, NvwError> {
     let values = message
         .as_array()
         .ok_or_else(|| NvwError::new("nvw-rplugin: rpc message must be an array"))?;
@@ -216,7 +223,7 @@ pub fn handle_rpc_message(cwd: &Path, message: Value) -> Result<Value, NvwError>
         .ok_or_else(|| NvwError::new("nvw-rplugin: rpc params must be an array"))?
         .clone();
 
-    let (error, result) = match handle_rplugin_request(cwd, method, params) {
+    let (error, result) = match handle_rplugin_request(method, params) {
         Ok(result) => (Value::Nil, result),
         Err(error) => (error, Value::Nil),
     };

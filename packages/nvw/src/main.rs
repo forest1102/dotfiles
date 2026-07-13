@@ -50,7 +50,7 @@ fn run_rplugin() -> Result<(), String> {
             Err(error) => return Err(format!("nvw-rplugin: failed to read rpc message: {error}")),
         };
 
-        let response = handle_rpc_message(Path::new("."), message)
+        let response = handle_rpc_message(message)
             .map_err(|error| format!("nvw-rplugin: failed to handle rpc message: {error}"))?;
         rmpv::encode::write_value(&mut writer, &response)
             .map_err(|error| format!("nvw-rplugin: failed to write rpc response: {error}"))?;
