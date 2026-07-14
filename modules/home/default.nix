@@ -5,6 +5,7 @@
     ./ai-agents.nix
     ./neovim.nix
     ./ssh.nix
+    ./tmux.nix
   ];
 
   home.stateVersion = "26.05";
