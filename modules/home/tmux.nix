@@ -1,9 +1,13 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   programs.tmux = {
     enable = true;
     mouse = true;
+
+    plugins = with pkgs.tmuxPlugins; [
+      resurrect
+    ];
 
     extraConfig = ''
       set -g status 2
