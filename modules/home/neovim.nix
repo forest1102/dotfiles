@@ -137,6 +137,7 @@ in
       shfmt
       stylua
       tailwindcss-language-server
+      terraform
       typescript-language-server
       volta
       vscode-langservers-extracted

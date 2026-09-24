@@ -1,16 +1,19 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports = [
     ./ai-agents.nix
     ./neovim.nix
-    ./ssh.nix
     ./tmux.nix
   ];
 
   home.stateVersion = "26.05";
   home.sessionPath = [
     "$HOME/.local/bin"
+  ];
+  home.packages = [
+    pkgs.herdr
+    pkgs.python3
   ];
 
   programs.home-manager.enable = true;

@@ -9,6 +9,9 @@
 
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    herdr.url = "github:herdrdev/herdr";
+    herdr.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -21,6 +24,10 @@
     let
       env = import ./lib/env.nix;
       outputHelpers = import ./lib/outputs.nix { lib = nixpkgs.lib; };
+
+      herdrOverlay = final: _prev: {
+        herdr = inputs.herdr.packages.${final.stdenv.hostPlatform.system}.default;
+      };
 
       resolvedHostname =
         let
@@ -51,11 +58,13 @@
           pkg:
           builtins.elem (nixpkgs.lib.getName pkg) [
             "claude-code"
+            "terraform"
           ];
       };
       pkgs = import nixpkgs {
         system = targetSystem;
         config = sharedNixpkgsConfig;
+        overlays = [ herdrOverlay ];
       };
       formatter = pkgs.writeShellApplication {
         name = "dotfiles-nixfmt";
@@ -93,6 +102,7 @@
 
           {
             nixpkgs.config = sharedNixpkgsConfig;
+            nixpkgs.overlays = [ herdrOverlay ];
 
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
