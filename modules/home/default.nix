@@ -12,6 +12,7 @@
     "$HOME/.local/bin"
   ];
   home.packages = [
+    pkgs.google-cloud-sdk
     pkgs.herdr
     pkgs.python3
   ];
