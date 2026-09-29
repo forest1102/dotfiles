@@ -5,6 +5,7 @@
     ./ai-agents.nix
     ./ghostty.nix
     ./neovim.nix
+    ./terminal-browser.nix
     ./tmux.nix
   ];
 
