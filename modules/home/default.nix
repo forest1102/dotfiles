@@ -25,8 +25,8 @@
     enable = true;
     initContent = ''
       if [[ -o interactive ]]; then
-        export VOLTA_HOME="''${VOLTA_HOME:-$HOME/.volta}"
-        path=("$VOLTA_HOME/bin" ''${path:#$VOLTA_HOME/bin})
+        export PROTO_HOME="''${PROTO_HOME:-$HOME/.proto}"
+        path=("$PROTO_HOME/shims" "$PROTO_HOME/bin" ''${path:#$PROTO_HOME/(shims|bin)})
 
         typeset -g __last_dir_file="''${XDG_STATE_HOME:-$HOME/.local/state}/zsh/last-dir"
 

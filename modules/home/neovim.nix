@@ -152,6 +152,7 @@ in
       prettierd
       prisma
       prisma-engines
+      proto
       ripgrep
       shellcheck
       shfmt
@@ -159,7 +160,6 @@ in
       tailwindcss-language-server
       terraform
       typescript-language-server
-      volta
       vscode-langservers-extracted
     ])
     ++ [
