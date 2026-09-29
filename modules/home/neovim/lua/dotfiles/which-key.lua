@@ -27,7 +27,7 @@ which_key.add({
 	{ "<leader>x", group = "Diagnostics" },
 	{ "<leader>xx", desc = "Diagnostics" },
 	{ "<leader>xX", desc = "Buffer diagnostics" },
-	{ "<leader>e", desc = "Toggle file/explorer focus" },
+	{ "<leader>e", desc = "Open/focus or close explorer" },
 	{ "<leader>c", desc = "Focus Claude" },
 	{ "<leader>C", group = "Claude" },
 	{ "<leader>CA", desc = "Continue Claude" },

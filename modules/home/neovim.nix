@@ -109,6 +109,25 @@ let
     version = "0.1.0";
     src = nvimGitChangesPluginSource;
   };
+  leaf = pkgs.rustPlatform.buildRustPackage {
+    pname = "leaf";
+    version = "1.28.2";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "RivoLink";
+      repo = "leaf";
+      tag = "1.28.2";
+      hash = "sha256-WX9C4gWNPCHWFsHN4xFmShv6dJyYAVgr9xMw5JtoFHI=";
+    };
+    cargoHash = "sha256-T6GH+Y9zBzSOp54shKtboydIZGPSsSKjuexQ3pQ1FqY=";
+  };
+  mermaidCli = pkgs.mermaid-cli.overrideAttrs (old: {
+    makeWrapperArgs =
+      (old.makeWrapperArgs or [ ])
+      ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+        ''--set-default PUPPETEER_EXECUTABLE_PATH "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"''
+      ];
+  });
 in
 {
   xdg.configFile."nvim/lua/dotfiles".source = ./neovim/lua/dotfiles;
@@ -124,6 +143,7 @@ in
       fzf
       gh
       git
+      imagemagick
       lazygit
       lua-language-server
       marksman
@@ -144,6 +164,8 @@ in
     ])
     ++ [
       nvw
+      mermaidCli
+      leaf
     ];
 
   programs.neovim = {
@@ -157,11 +179,12 @@ in
       conform-nvim
       gitsigns-nvim
       lualine-nvim
-      markview-nvim
       nvim-web-devicons
+      render-markdown-nvim
       snacks-nvim
       todo-comments-nvim
       trouble-nvim
+      vim-solarized8
       which-key-nvim
       nvim-lspconfig
       nvimGitChangesNeovimPlugin

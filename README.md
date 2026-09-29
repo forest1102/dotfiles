@@ -162,6 +162,20 @@ Neovim 側の Snacks picker、diff window、keymap は Lua 設定に残します
 
 `<leader>ge` も `:GitChangedFiles` と同じ表示を切り替えます。変更一覧では `M` / `A` / `D` / `R` / `??` の短い状態ラベルを表示し、rename は `old -> new` として扱います。
 
+## Mermaid 図のインライン表示
+
+Markdown バッファ内の mermaid コードブロックは、snacks.nvim の `image` モジュールで画像として展開表示されます（Markdown 自体のレンダリングは render-markdown.nvim が担当し、mermaid 部分だけ snacks.image が担います）。
+
+表示には kitty graphics protocol に対応した外側のターミナル（Ghostty / kitty / WezTerm など）が必要です。iTerm2 や Terminal.app では画像は表示されません。
+
+Terminal.app は herdr（tmux 相当の multiplexer）越しでも kitty graphics protocol に対応していないため、`modules/home/ghostty.nix` で Ghostty をインストールしています。`darwin-rebuild switch` 後、Ghostty.app は `~/Applications/Home Manager Apps` 以下に配置されます（home-manager の app 管理が copy 方式のため、シンボリックリンクではなく実体がコピーされます）。herdr は Ghostty の中で起動してください。
+
+mermaid の描画には `mmdc`（mermaid-cli）を使い、内部で Google Chrome（`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`）を起動して PNG に変換します。別の Chromium/Chrome を使いたい場合は環境変数 `PUPPETEER_EXECUTABLE_PATH` で上書きできます。
+
+セットアップ状態は `:checkhealth snacks` で確認できます。
+
+mermaid をターミナル上で ASCII 表示したい場合は `leaf`（Rust 製の Markdown プレビューア）も導入しています。Markdown バッファで `<leader>ml` を押すと、右側のターミナル分割で `leaf -w <ファイル>`（watch モード）が開き、保存するたびに再描画されます。設定は `leaf --config` から変更できます。
+
 ## フォント設定
 
 フォントは `modules/darwin/default.nix` の `fonts.packages` で管理します。現在は FiraCode Nerd Font を入れています。
@@ -185,6 +199,10 @@ Settings > Profiles > Text > Font > FiraCode Nerd Font
 
 VS Code:
 Settings > Editor: Font Family に 'FiraCode Nerd Font' を追加
+
+Ghostty:
+programs.ghostty.settings の font-family / font-size で管理（modules/home/ghostty.nix）
+Terminal.app と同じ FiraCode Nerd Font 12pt
 ```
 
 ## 参考

@@ -216,6 +216,10 @@ end
 
 local function keep_changed_files_open() end
 
+local function close_changed_files_action()
+	pcall(vim.cmd, "GitChangedFilesClose")
+end
+
 local function get_git_root()
 	local lines = vim.fn.systemlist({ "git", "rev-parse", "--show-toplevel" })
 	if vim.v.shell_error ~= 0 or not lines[1] or lines[1] == "" then
@@ -567,6 +571,7 @@ local function open_changed_files_picker(payload)
 			list = {
 				keys = {
 					["<Esc>"] = keep_changed_files_open,
+					["<c-n>"] = close_changed_files_action,
 				},
 			},
 			preview = {

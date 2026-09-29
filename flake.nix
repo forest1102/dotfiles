@@ -59,6 +59,7 @@
           builtins.elem (nixpkgs.lib.getName pkg) [
             "claude-code"
             "terraform"
+            "vim-solarized8"
           ];
       };
       pkgs = import nixpkgs {

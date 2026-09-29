@@ -3,6 +3,7 @@
 {
   imports = [
     ./ai-agents.nix
+    ./ghostty.nix
     ./neovim.nix
     ./tmux.nix
   ];

@@ -18,123 +18,12 @@ local function close_current_view()
 	vim.cmd(force and "bdelete!" or "bdelete")
 end
 
-local function git_diff_view_window()
-	local fallback = nil
-
-	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-		local ok, is_diff_view = pcall(vim.api.nvim_win_get_var, win, "dotfiles_git_diff_view")
-		local _, role = pcall(vim.api.nvim_win_get_var, win, "dotfiles_git_diff_role")
-		if not ok or not is_diff_view then
-			local buffer = vim.api.nvim_win_get_buf(win)
-			ok, is_diff_view = pcall(vim.api.nvim_buf_get_var, buffer, "dotfiles_git_diff_view")
-			_, role = pcall(vim.api.nvim_buf_get_var, buffer, "dotfiles_git_diff_role")
-		end
-
-		if ok and is_diff_view then
-			if role == "worktree" then
-				return win
-			end
-			fallback = fallback or win
-		end
-	end
-
-	return fallback
-end
-
-local function focus_git_diff_view()
-	local win = git_diff_view_window()
-	if not win then
-		return false
-	end
-
-	vim.api.nvim_set_current_win(win)
-	return true
-end
-
 local function changed_files_explorer()
 	for _, picker in ipairs(Snacks.picker.get({})) do
 		if picker.opts.title == "Changed files" then
 			return picker
 		end
 	end
-end
-
-local function picker_has_window(picker, target)
-	for _, win in pairs(picker.layout.wins or {}) do
-		if win.win == target then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function focus_changed_files_explorer(picker)
-	if not picker or picker.closed then
-		return false
-	end
-
-	picker:focus("list", { show = true })
-	return true
-end
-
-local function is_current_git_diff_view()
-	local current = vim.api.nvim_get_current_win()
-	local ok, is_diff_view = pcall(vim.api.nvim_win_get_var, current, "dotfiles_git_diff_view")
-	if ok and is_diff_view then
-		return true
-	end
-
-	local buffer = vim.api.nvim_win_get_buf(current)
-	ok, is_diff_view = pcall(vim.api.nvim_buf_get_var, buffer, "dotfiles_git_diff_view")
-	return ok and is_diff_view
-end
-
-local function is_file_explorer_focused()
-	local current = vim.api.nvim_get_current_win()
-
-	for _, picker in ipairs(Snacks.picker.get({ source = "explorer" })) do
-		for _, win in pairs(picker.layout.wins or {}) do
-			if win.win == current then
-				return true
-			end
-		end
-	end
-
-	return false
-end
-
-local function is_window_in_picker(picker, target)
-	if not picker then
-		return false
-	end
-
-	for _, win in pairs(picker.layout.wins or {}) do
-		if win.win == target then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function is_explorer_window(win)
-	local changed_files = changed_files_explorer()
-	if is_window_in_picker(changed_files, win) then
-		return true
-	end
-
-	for _, picker in ipairs(Snacks.picker.get({ source = "explorer" })) do
-		if is_window_in_picker(picker, win) then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function is_current_explorer_window()
-	return is_explorer_window(vim.api.nvim_get_current_win())
 end
 
 local function close_file_explorer_if_open()
@@ -158,16 +47,6 @@ local function close_changed_files_explorer_if_open()
 	return true
 end
 
-local function focus_folder_explorer()
-	local explorer = Snacks.picker.get({ source = "explorer" })[1]
-	if not explorer or explorer.closed then
-		return false
-	end
-
-	explorer:focus("list", { show = true })
-	return true
-end
-
 local function open_folder_explorer()
 	local explorer = Snacks.picker.get({ source = "explorer" })[1]
 	if explorer and not explorer.closed then
@@ -186,56 +65,69 @@ local function open_folder_explorer_only()
 	open_folder_explorer()
 end
 
-local function focus_file_window()
-	if focus_git_diff_view() then
+local function close_explorer()
+	if close_changed_files_explorer_if_open() then
 		return true
 	end
 
-	local current = vim.api.nvim_get_current_win()
-	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-		local ok, config = pcall(vim.api.nvim_win_get_config, win)
-		local buffer = vim.api.nvim_win_get_buf(win)
-		if
-			ok
-			and config.relative == ""
-			and win ~= current
-			and not is_explorer_window(win)
-			and vim.bo[buffer].buftype == ""
-		then
-			vim.api.nvim_set_current_win(win)
+	return close_file_explorer_if_open()
+end
+
+local function is_window_in_picker(picker, win)
+	if not picker or picker.closed then
+		return false
+	end
+
+	for _, w in pairs(picker.layout.wins or {}) do
+		if w.win == win then
 			return true
 		end
 	end
 
-	vim.cmd("wincmd p")
-	return true
+	return false
 end
 
-local function focus_current_explorer()
+local function current_window_picker()
+	local win = vim.api.nvim_get_current_win()
 	local changed_files = changed_files_explorer()
-	if changed_files then
-		if is_current_git_diff_view() or picker_has_window(changed_files, vim.api.nvim_get_current_win()) then
-			focus_changed_files_explorer(changed_files)
-			return true
-		end
-
-		if not is_file_explorer_focused() then
-			focus_changed_files_explorer(changed_files)
-			return true
-		end
+	if is_window_in_picker(changed_files, win) then
+		return changed_files
 	end
 
-	open_folder_explorer_only()
-	return true
+	local explorer = Snacks.picker.get({ source = "explorer" })[1]
+	if is_window_in_picker(explorer, win) then
+		return explorer
+	end
+
+	return nil
 end
 
-local function toggle_focus_current_explorer()
-	if is_current_explorer_window() then
-		focus_file_window()
+local function toggle_explorer_visibility()
+	if close_explorer() then
 		return
 	end
 
-	focus_current_explorer()
+	open_folder_explorer()
+end
+
+local function toggle_explorer()
+	local picker = current_window_picker()
+	if picker then
+		if picker.opts.title == "Changed files" then
+			close_changed_files_explorer_if_open()
+		else
+			picker:close()
+		end
+		return
+	end
+
+	local changed_files = changed_files_explorer()
+	if changed_files and not changed_files.closed then
+		changed_files:focus("list", { show = true })
+		return
+	end
+
+	open_folder_explorer()
 end
 
 vim.api.nvim_create_autocmd("FileType", {
@@ -246,8 +138,19 @@ vim.api.nvim_create_autocmd("TermOpen", {
 	command = "setlocal nonumber norelativenumber signcolumn=no foldcolumn=0",
 })
 
+-- herdr hides the outer terminal (TERM_PROGRAM=herdr) but still passes kitty
+-- graphics protocol placeholders through, so register it explicitly since
+-- snacks.image doesn't recognize herdr on its own.
+table.insert(require("snacks.image.terminal").envs(), {
+	name = "herdr",
+	env = { TERM_PROGRAM = "herdr" },
+	supported = true,
+	placeholders = true,
+})
+
 Snacks.setup({
 	explorer = { enabled = true, replace_netrw = true },
+	image = { enabled = true },
 	input = { enabled = true },
 	notifier = { enabled = true, timeout = 3000 },
 	picker = {
@@ -258,6 +161,13 @@ Snacks.setup({
 				hidden = true,
 				ignored = true,
 				layout = { preset = "sidebar", preview = false, layout = { position = "left", width = 32 } },
+				win = {
+					list = {
+						keys = {
+							["<c-n>"] = "close",
+						},
+					},
+				},
 			},
 			files = {
 				hidden = true,
@@ -273,7 +183,8 @@ util.map("n", "<leader>s", "<cmd>write<cr>", "Write buffer")
 util.map("n", "<leader>q", "<cmd>quit<cr>", "Quit window")
 util.map("n", "<leader>Q", "<cmd>qa<cr>", "Quit Neovim")
 util.map({ "n", "t" }, "<C-q>", close_current_view, "Close current view")
-util.map("n", "<leader>e", toggle_focus_current_explorer, "Toggle file/explorer focus")
+util.map("n", "<C-n>", toggle_explorer_visibility, "Toggle explorer")
+util.map("n", "<leader>e", toggle_explorer, "Open/focus or close explorer")
 util.map("n", "<leader>fe", open_folder_explorer_only, "Folder explorer")
 
 local function open_initial_explorer()
@@ -292,10 +203,10 @@ local function open_initial_explorer()
 
 	local current_file = vim.api.nvim_buf_get_name(0)
 	if current_file ~= "" and vim.fn.filereadable(current_file) == 1 then
-		Snacks.explorer.reveal({ file = current_file })
-	else
-		Snacks.explorer()
+		return
 	end
+
+	Snacks.explorer()
 end
 
 vim.api.nvim_create_autocmd("VimEnter", {
