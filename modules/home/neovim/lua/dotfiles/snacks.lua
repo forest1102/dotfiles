@@ -160,6 +160,7 @@ Snacks.setup({
 			explorer = {
 				hidden = true,
 				ignored = true,
+				exclude = { "node_modules" },
 				layout = { preset = "sidebar", preview = false, layout = { position = "left", width = 32 } },
 				win = {
 					list = {
