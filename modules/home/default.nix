@@ -49,6 +49,11 @@
 
         __save_last_dir
       fi
+
+      # マシン固有の設定は Git 管理外の ~/.zshrc.local に書く
+      if [[ -r "$HOME/.zshrc.local" ]]; then
+        source "$HOME/.zshrc.local"
+      fi
     '';
   };
 }
